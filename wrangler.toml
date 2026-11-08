@@ -1,0 +1,59 @@
+# 万象 myriad_api · Cloudflare Worker 配置模板
+#
+# 除 Worker 本身外，所有绑定都是可选的：缺少某个绑定时，对应功能会自动关闭，
+# 其余接口照常运行（GET /v1/health 会列出当前可用的功能）。
+# 新版 wrangler 会在首次部署时自动创建未填写 id 的 D1 / KV / R2 资源。
+
+name = "myriad-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 自定义域名（自部署时改成自己的域名，或删掉这一段使用 *.workers.dev）
+routes = [{ pattern = "myriad.zxabinbina.cc.cd", custom_domain = true }]
+
+[vars]
+# Cloudflare Access：团队域名与应用的 AUD 标签。两者留空时私有接口（/v1/me/*）一律拒绝。
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
+# 额外的身份白名单（逗号分隔的邮箱或 Service Token 的 Client ID），留空表示只依赖 Access 策略
+ALLOWED_IDENTITIES = ""
+# 允许跨域访问的网页来源（逗号分隔）。浏览器扩展通过主机权限访问，不需要列在这里。
+ALLOWED_ORIGINS = "https://zxabinbina.cc.cd"
+
+# ---------------------------------------------------------------------------
+# 可选绑定
+# ---------------------------------------------------------------------------
+
+# D1：同步数据（Yjs 更新与快照）、备份设置。缺少时关闭同步与备份。
+[[d1_databases]]
+binding = "DB"
+database_name = "myriad"
+migrations_dir = "migrations"
+
+# KV：短期缓存（图标索引、节假日、每日壁纸等）。缺少时退回 Cache API。
+[[kv_namespaces]]
+binding = "CACHE"
+
+# R2：图标缓存、用户上传的壁纸、每日备份快照。缺少时关闭备份与文件同步，图标只走 Cache API。
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "myriad"
+
+# 按 IP 限流（公开接口）。namespace_id 是账户内唯一的整数，随意取一个即可。
+[[ratelimits]]
+name = "RATE_LIMIT"
+namespace_id = "7301"
+simple = { limit = 120, period = 60 }
+
+# Analytics Engine：接口调用统计（可选，取消注释即可启用）
+# [[analytics_engine_datasets]]
+# binding = "ANALYTICS"
+# dataset = "myriad_api"
+
+# 定时任务：每天 UTC 20:00（北京时间 04:00）做备份、刷新节假日数据
+[triggers]
+crons = ["0 20 * * *"]
+
+# Secrets（用 `wrangler secret put <NAME>` 设置，均为可选）：
+#   UNSPLASH_ACCESS_KEY  Unsplash 每日壁纸
