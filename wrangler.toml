@@ -9,19 +9,20 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat", "enable_request_signal"]
 
-# 自定义域名（自部署时改成自己的域名，或删掉这一段使用 *.workers.dev）
-routes = [{ pattern = "myriad.zxabinbina.cc.cd", custom_domain = true }]
+# 默认使用部署者的 *.workers.dev；需要时在本机配置中填写自己的域名。
+workers_dev = true
+# routes = [{ pattern = "myriad.example.com", custom_domain = true }]
 
 [vars]
 # 不用 Access 时，运行 npm run token:create，并按 README 把校验值作为 Secret 部署。
 SYNC_IDENTITY = "owner"
-# Cloudflare Access：团队域名与应用的 AUD 标签。两者留空时私有接口（/v1/me/*）一律拒绝。
+# 可选 Cloudflare Access：两者留空时只使用上面的独立连接令牌。
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
 # 额外的身份白名单（逗号分隔的邮箱或 Service Token 的 Client ID），留空表示只依赖 Access 策略
 ALLOWED_IDENTITIES = ""
 # 允许跨域访问的网页来源（逗号分隔）。浏览器扩展通过主机权限访问，不需要列在这里。
-ALLOWED_ORIGINS = "https://zxabinbina.cc.cd"
+ALLOWED_ORIGINS = ""
 
 # ---------------------------------------------------------------------------
 # 可选绑定

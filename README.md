@@ -117,19 +117,23 @@ POST /v1/me/sync
 
 ## 部署
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zxaBinbina/myriad_api)
+
+可用按钮部署到自己的账户；首次公开接口可用，私有同步需生成自己的连接令牌。完整步骤、可选绑定与更新方式见 [自部署指南](docs/SELF_HOSTING.md)。
+
 需要 Node.js 22 以上和一个 Cloudflare 账户。**Worker + D1 即可提供同步、备份与文件存储，无需开通 Access 或 R2。** KV 可选；Access 与 R2 保留为可选替代配置。
 
 ```bash
 git clone https://github.com/zxaBinbina/myriad_api.git
 cd myriad_api
-npm install
+npm ci
 npx wrangler login
 cp wrangler.toml wrangler.local.toml
 ```
 
 `wrangler.local.toml` 与 `.local/` 已被 Git 忽略，本机配置和令牌不提交到仓库。
 
-1. 修改 `wrangler.local.toml` 的域名，或删除 `routes` 使用 `*.workers.dev`；`SYNC_IDENTITY` 填自己的显示名称。
+1. 默认使用自己的 `*.workers.dev`，可在 `wrangler.local.toml` 添加自定义域名；`SYNC_IDENTITY` 填自己的显示名称。
 2. 运行 `npm run token:create`，生成一个 256 位随机连接令牌。原文保存在 `.local/connection-token.txt`，SHA-256 校验值保存在 `.local/token-secrets.json`；命令不会输出令牌内容。再次运行会复用原令牌。
 3. 部署并迁移数据库：
 

@@ -34,7 +34,7 @@ npm run typecheck && npm test
 - 翻译使用 `translationStructure.ts` 保留标题 / 列表 / 空行 / 缩进 / 代码块，与客户端 core 算法镜像；整次 25 秒、最多 3 段并发，失败不返回半译文。Workers fetch 不接受 `redirect:error`，统一用 manual 并拒绝 3xx；`enable_request_signal` 在模板和实际部署配置均启用，私有 Key 不跟随重定向。
 - 验证：66 项 workerd 测试、类型检查通过；线上贡献图返回 371 天，匿名仓库 API 额度耗尽返回明确 `github-quota`；无 GitHub Token 返回 501、私有 no-store、无和风配置退回 Open-Meteo 均实测。用户确认未配置和风 / GitHub Key，私有内容通过固定上游模拟测试，不声称真实付费服务已验证。
 - 热榜 / RSS 与聚合搜索已在 M4 实现，网站版（M5）复用现有公开接口限流；Turnstile 尚未配置。M4 已完成试用反馈修正。
-- Deploy to Cloudflare 按钮与 GitHub Actions 在 M6 加入。
+- M6 已加入 Deploy to Cloudflare 按钮、自部署指南与只读 GitHub Actions；公共模板默认使用部署者自己的 workers.dev，不含作者域名或资源 ID。
 - 微博等站点会拦截机房 IP，图标代理抓不到时客户端回退到图标库或文字图标。
 
 - **2026-11-15 服务密钥**：私有 GET `/v1/me/credentials` 只返回配置状态，PUT `/v1/me/credentials/:service` 只接收 origin / service 绑定的 AES-GCM 密文，额外要求独立连接令牌；Access 与旧环境凭据仍兼容读取。D1 新表 `service_credentials` 在迁移 0003 与 SCHEMA 中同时定义，保存时重新以独立 HKDF 上下文加密。白名单字段、必填校验、版本 CAS 与明确删除，不能记录请求正文或返回密钥。`credentialEnv` 仅私有路由使用，公开 GitHub / 天气不得调用。
@@ -55,3 +55,9 @@ npm run typecheck && npm test
 - **2026-11-15 M4 阅读媒体**：reader 返回按 DOM 顺序排列的 blocks（text / image / video / audio / unavailable），保留 paragraphs 兼容旧客户端与 AI。支持图片懒加载属性 / picture、相对 URL、视频 source / poster 及音频；只返回 http(s) 无凭据地址，不返回可执行 HTML，iframe / object 等为占位块。使用最终重定向地址解析相对媒体，reader 缓存升至 v2。客户端镜像字节一致；85 项 workerd 测试通过，线上 reader example.com / MDN 返回 200 和新 blocks。已部署到原域名，无迁移。
 
 - **2026-11-15 M5**：用户取消网站隐藏登录 / OAuth，homepage 只调用免费公开接口。个人同步、私有搜索、服务密钥与 AI 摘要均不可用于访客；公开路由仍使用既有限流，不要求新增数据库、密钥或部署。content.ts 增加明确类型以支持 npm 声明输出，与 core 镜像继续字节一致，运行行为无变化。
+
+## M6 · 自部署与发布
+
+- `docs/SELF_HOSTING.md` 提供按钮 / 本机部署、连接令牌、可选绑定、更新和恢复步骤。按钮只部署公开能力，私有鉴权需用户生成原令牌并上传校验值；不会在云端生成无法取回的令牌。
+- `npm run build` 为 Wrangler dry-run；CI 执行类型、85 项 workerd 测试和模板验证，不部署生产。数据库迁移命令使用绑定名 DB，允许修改数据库名。
+- 公共模板不含作者 active route 或网页 origin；实际生产配置继续在 Git 忽略的 wrangler.local.toml，原资源与令牌保持不变。

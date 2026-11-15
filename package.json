@@ -12,10 +12,11 @@
     "types": "wrangler types --include-runtime false",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "db:migrate": "wrangler d1 migrations apply myriad --remote",
-    "db:migrate:local": "wrangler d1 migrations apply myriad --local",
+    "db:migrate": "wrangler d1 migrations apply DB --remote",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "build": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
     "hono": "^4.13.17",
@@ -35,5 +36,18 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "cloudflare": {
+    "bindings": {
+      "DB": {
+        "description": "同步、服务密钥、文件和备份的 D1 数据库；可自动创建。"
+      },
+      "CACHE": {
+        "description": "公开数据缓存；可自动创建，缺失时使用 Cache API。"
+      },
+      "RATE_LIMIT": {
+        "description": "公开接口按 IP 限流，默认每分钟 120 次。"
+      }
+    }
   }
 }
