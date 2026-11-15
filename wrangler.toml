@@ -7,12 +7,14 @@
 name = "myriad-api"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat", "enable_request_signal"]
 
 # 自定义域名（自部署时改成自己的域名，或删掉这一段使用 *.workers.dev）
 routes = [{ pattern = "myriad.zxabinbina.cc.cd", custom_domain = true }]
 
 [vars]
+# 不用 Access 时，运行 npm run token:create，并按 README 把校验值作为 Secret 部署。
+SYNC_IDENTITY = "owner"
 # Cloudflare Access：团队域名与应用的 AUD 标签。两者留空时私有接口（/v1/me/*）一律拒绝。
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
@@ -25,6 +27,10 @@ ALLOWED_ORIGINS = "https://zxabinbina.cc.cd"
 # 可选绑定
 # ---------------------------------------------------------------------------
 
+# Workers AI：登录后的翻译（m2m100），未绑定时可用本机翻译 Key 或其他服务端 Key。
+# [ai]
+# binding = "AI"
+
 # D1：同步数据（Yjs 更新与快照）、备份设置。缺少时关闭同步与备份。
 [[d1_databases]]
 binding = "DB"
@@ -35,10 +41,10 @@ migrations_dir = "migrations"
 [[kv_namespaces]]
 binding = "CACHE"
 
-# R2：图标缓存、用户上传的壁纸、每日备份快照。缺少时关闭备份与文件同步，图标只走 Cache API。
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "myriad"
+# R2（可选）：启用后用于文件和备份；未启用时自动分块存入 D1，图标使用 Cache API。
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "myriad"
 
 # 按 IP 限流（公开接口）。namespace_id 是账户内唯一的整数，随意取一个即可。
 [[ratelimits]]
@@ -56,4 +62,12 @@ simple = { limit = 120, period = 60 }
 crons = ["0 20 * * *"]
 
 # Secrets（用 `wrangler secret put <NAME>` 设置，均为可选）：
+#   SYNC_TOKEN_SHA256    独立连接令牌的 SHA-256 校验值（见 README）
 #   UNSPLASH_ACCESS_KEY  Unsplash 每日壁纸
+#   DEEPL_API_KEY       DeepL；Free Key 自动使用 api-free.deepl.com
+#   MICROSOFT_TRANSLATOR_KEY     Microsoft Translator
+#   MICROSOFT_TRANSLATOR_REGION  Microsoft Key 对应的区域（需要时）
+#   QWEATHER_HOST       和风专属域名（*.qweatherapi.com）
+#   QWEATHER_API_KEY    和风 API Key，或改用以下 EdDSA JWT 参数
+#   QWEATHER_PRIVATE_KEY / QWEATHER_KID / QWEATHER_SUB
+#   GITHUB_TOKEN        仅私有接口使用，按需要授予读取权限

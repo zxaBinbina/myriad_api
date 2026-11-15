@@ -1,6 +1,8 @@
 node_modules/
 .wrangler/
 .dev.vars
+.local/
+wrangler.local.toml
 dist/
 coverage/
 *.tsbuildinfo

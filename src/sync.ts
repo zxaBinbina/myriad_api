@@ -1,5 +1,6 @@
 import { mergeUpdates } from 'yjs'
 import type { Env } from './env'
+import { deleteObject, getObject, MAX_D1_OBJECT_BYTES, putObject } from './objects'
 
 /**
  * Yjs 同步存储。
@@ -17,10 +18,13 @@ export const MAX_UPDATE_BYTES = 1_900_000
 const COMPACT_THRESHOLD = 48
 
 const SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS service_credentials (service TEXT PRIMARY KEY, envelope TEXT NOT NULL, version TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS sync_docs (id TEXT PRIMARY KEY, state BLOB, state_r2 TEXT, upto INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0)`,
   `CREATE TABLE IF NOT EXISTS sync_updates (id INTEGER PRIMARY KEY AUTOINCREMENT, doc TEXT NOT NULL, data BLOB NOT NULL, size INTEGER NOT NULL, created_at INTEGER NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS sync_updates_doc ON sync_updates (doc, id)`,
   `CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS stored_objects (key TEXT PRIMARY KEY, size INTEGER NOT NULL, uploaded_at INTEGER NOT NULL, content_type TEXT NOT NULL, metadata TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS object_chunks (key TEXT NOT NULL REFERENCES stored_objects(key) ON DELETE CASCADE, part INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY (key, part))`,
 ]
 
 const ready = new WeakSet<D1Database>()
@@ -48,8 +52,8 @@ const bytes = (b: ArrayBuffer | Uint8Array | number[]) =>
 async function snapshotBytes(env: Env, row: SnapshotRow | null): Promise<Uint8Array | null> {
   if (!row) return null
   if (row.state) return bytes(row.state)
-  if (row.state_r2 && env.BUCKET) {
-    const obj = await env.BUCKET.get(row.state_r2)
+  if (row.state_r2) {
+    const obj = await getObject(env, row.state_r2)
     if (obj) return new Uint8Array(await obj.arrayBuffer())
   }
   return null
@@ -154,10 +158,10 @@ export async function maybeCompact(env: Env, doc: string, force = false): Promis
   let state: Uint8Array | null = merged
   let stateR2: string | null = null
   if (merged.length > MAX_UPDATE_BYTES) {
-    // 快照超出 D1 上限时放进 R2；没有 R2 就先不压缩
-    if (!env.BUCKET) return false
-    stateR2 = `sync/${doc}/snapshot-${newUpto}.bin`
-    await env.BUCKET.put(stateR2, merged)
+    // 大快照使用对象存储；没有 R2 时自动分块存入 D1。
+    if (!env.BUCKET && merged.length > MAX_D1_OBJECT_BYTES) return false
+    stateR2 = `sync/${doc}/snapshot-${newUpto}-${crypto.randomUUID()}.bin`
+    await putObject(env, stateR2, merged)
     state = null
   }
   const [upsert] = await db.batch([
@@ -176,11 +180,9 @@ export async function maybeCompact(env: Env, doc: string, force = false): Promis
       .bind(doc),
   ])
   const ok = (upsert!.meta.changes ?? 0) > 0
-  if (env.BUCKET) {
-    // 清理被替换的旧快照（或本次没写成功的新快照）
-    if (ok && snap?.state_r2) await env.BUCKET.delete(snap.state_r2)
-    if (!ok && stateR2) await env.BUCKET.delete(stateR2)
-  }
+  // 清理被替换的旧快照（或本次没写成功的新快照）
+  if (ok && snap?.state_r2) await deleteObject(env, snap.state_r2)
+  if (!ok && stateR2) await deleteObject(env, stateR2)
   return ok
 }
 

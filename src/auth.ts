@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono'
 import { createRemoteJWKSet, type JWTVerifyGetKey, jwtVerify } from 'jose'
-import { type AppEnv, type Env, list } from './env'
+import { type AppEnv, type Env, hasPersonalToken, list } from './env'
 
 /**
  * Cloudflare Access 鉴权。
@@ -40,12 +40,35 @@ function tokenFrom(req: Request): string | null {
   return m ? decodeURIComponent(m[1]!) : null
 }
 
+/** 比较固定长度的摘要，Worker 不保存连接令牌原文。 */
+async function personalTokenMatches(token: string, expected: string) {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)),
+  )
+  const expectedBytes = Uint8Array.from(expected.match(/../g)!, (n) => Number.parseInt(n, 16))
+  return crypto.subtle.timingSafeEqual(digest, expectedBytes)
+}
+
 export type AuthResult = { ok: true; identity: string } | { ok: false; status: 401 | 403 | 503 }
 
 export async function authenticate(req: Request, env: Env): Promise<AuthResult> {
   const host = new URL(req.url).hostname
   if (env.DEV_AUTH_BYPASS === 'true' && (host === 'localhost' || host === '127.0.0.1')) {
     return { ok: true, identity: 'dev@localhost' }
+  }
+  const authorization = req.headers.get('Authorization')
+  if (hasPersonalToken(env)) {
+    if (authorization) {
+      const match = /^Bearer (\S+)$/i.exec(authorization)
+      if (
+        !match ||
+        match[1]!.length > 256 ||
+        !(await personalTokenMatches(match[1]!, env.SYNC_TOKEN_SHA256!))
+      )
+        return { ok: false, status: 401 }
+      return { ok: true, identity: env.SYNC_IDENTITY || 'owner' }
+    }
+    if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return { ok: false, status: 401 }
   }
   const team = teamOrigin(env)
   const aud = (env.ACCESS_AUD ?? '').trim()

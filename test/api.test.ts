@@ -244,11 +244,13 @@ describe('备份', () => {
   })
 
   it('每日备份：内容不变时跳过，超过保留份数时删除最旧的', async () => {
+    // 备份验证不依赖实时节假日源，关闭可选 KV 以避免外网波动导致超时。
+    const backupEnv = { ...env, CACHE: undefined }
     const a = new Client()
     a.doc.getMap('data').set('day', 1)
     await a.sync()
-    await scheduled(env)
-    await scheduled(env)
+    await scheduled(backupEnv)
+    await scheduled(backupEnv)
     const daily = async () =>
       (
         (await (await call('/v1/me/backups')).json()) as { backups: { reason: string }[] }
@@ -257,7 +259,7 @@ describe('备份', () => {
     for (const day of [2, 3]) {
       a.doc.getMap('data').set('day', day)
       await a.sync()
-      await scheduled(env)
+      await scheduled(backupEnv)
     }
     expect(await daily()).toHaveLength(2)
 

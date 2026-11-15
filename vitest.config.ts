@@ -6,6 +6,7 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: './wrangler.toml' },
       miniflare: {
+        r2Buckets: ['BUCKET'],
         bindings: {
           ACCESS_TEAM_DOMAIN: 'https://myriad-test.cloudflareaccess.com',
           ACCESS_AUD: 'test-aud',

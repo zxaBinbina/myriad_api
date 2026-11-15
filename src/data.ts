@@ -111,6 +111,7 @@ export interface DailyWallpaper {
 }
 
 interface UnsplashPhoto {
+  id: string
   color?: string
   urls: { raw: string; small: string }
   links: { html: string; download_location: string }
@@ -127,32 +128,45 @@ export function unsplashDaily(
 ): Promise<DailyWallpaper> {
   const day = new Date().toISOString().slice(0, 10)
   const q = query.trim().slice(0, 40) || 'nature'
-  return cached(env, `unsplash:${day}:${q}`, 86400, async () => {
-    const api = new URL('https://api.unsplash.com/photos/random')
-    api.searchParams.set('orientation', 'landscape')
-    api.searchParams.set('content_filter', 'high')
-    api.searchParams.set('query', q)
-    const res = await fetch(api, {
-      headers: {
-        Authorization: `Client-ID ${env.UNSPLASH_ACCESS_KEY}`,
-        'Accept-Version': 'v1',
-      },
-      signal: AbortSignal.timeout(8000),
-    })
-    if (!res.ok) throw new Error(`Unsplash HTTP ${res.status}`)
-    const p = (await res.json()) as UnsplashPhoto
-    waitUntil(
-      fetch(p.links.download_location, {
-        headers: { Authorization: `Client-ID ${env.UNSPLASH_ACCESS_KEY}` },
-      }).catch(() => undefined),
-    )
-    return {
-      url: `${p.urls.raw}&w=2560&q=80&fm=jpg&fit=max`,
-      thumb: p.urls.small,
-      color: p.color ?? null,
-      author: p.user.name,
-      authorUrl: p.user.links.html + REF,
-      link: p.links.html + REF,
-    }
-  })
+  return cached(
+    env,
+    `unsplash:v2:${env.CREDENTIAL_REVISION ?? ''}:${day}:${q}`,
+    86400,
+    async () => {
+      const api = new URL('https://api.unsplash.com/photos/random')
+      api.searchParams.set('orientation', 'landscape')
+      api.searchParams.set('content_filter', 'high')
+      api.searchParams.set('query', q)
+      const res = await fetch(api, {
+        headers: {
+          Authorization: `Client-ID ${env.UNSPLASH_ACCESS_KEY}`,
+          'Accept-Version': 'v1',
+        },
+        signal: AbortSignal.timeout(8000),
+        redirect: 'manual',
+      })
+      if (!res.ok) throw new Error(`Unsplash HTTP ${res.status}`)
+      const p = (await res.json()) as UnsplashPhoto
+      waitUntil(
+        fetch(
+          new URL(p.links.download_location).origin === 'https://api.unsplash.com'
+            ? p.links.download_location
+            : 'https://api.unsplash.com/photos/' + encodeURIComponent(p.id) + '/download',
+          {
+            redirect: 'manual',
+            signal: AbortSignal.timeout(8000),
+            headers: { Authorization: `Client-ID ${env.UNSPLASH_ACCESS_KEY}` },
+          },
+        ).catch(() => undefined),
+      )
+      return {
+        url: `${p.urls.raw}&w=2560&q=80&fm=jpg&fit=max`,
+        thumb: p.urls.small,
+        color: p.color ?? null,
+        author: p.user.name,
+        authorUrl: p.user.links.html + REF,
+        link: p.links.html + REF,
+      }
+    },
+  )
 }

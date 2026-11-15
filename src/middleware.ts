@@ -39,7 +39,7 @@ export const cors: MiddlewareHandler<AppEnv> = async (c, next) => {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers':
         c.req.header('Access-Control-Request-Headers') ??
-        'Content-Type, CF-Access-Client-Id, CF-Access-Client-Secret',
+        'Content-Type, Authorization, CF-Access-Client-Id, CF-Access-Client-Secret',
       'Access-Control-Max-Age': '86400',
     })
   }
